@@ -6,35 +6,47 @@ Created on Thu Jun 12 07:38:06 2025
 """
 import os
 import numpy as np
-from datasets import load_dataset
-from PIL import Image
 import matplotlib.pyplot as plt
+from PIL import Image
 
 IMG_SIZE = 128
-DATA_DIR = "data/scene_parse_150"
+DATA_DIR = "./data/scene_parse_150"
 
-def guardar_datos_local(n=200):
-    os.makedirs(DATA_DIR, exist_ok=True)
-    dataset = load_dataset("scene_parse_150", split="train[:{}]".format(n), trust_remote_code=True)
-
-    for i, example in enumerate(dataset):
-        img = example['image'].resize((IMG_SIZE, IMG_SIZE))
-        mask = example['annotation'].resize((IMG_SIZE, IMG_SIZE))
-        img.save(f"{DATA_DIR}/img_{i}.png")
-        mask.save(f"{DATA_DIR}/mask_{i}.png")
-
-def cargar_datos_local():
+def cargar_datos(n=200):
     X, y = [], []
-    files = sorted([f for f in os.listdir(DATA_DIR) if f.startswith("img_")])
-    for f in files:
-        idx = f.split('_')[1].split('.')[0]
-        img = np.array(Image.open(f"{DATA_DIR}/img_{idx}.png")) / 255.0
-        mask = np.array(Image.open(f"{DATA_DIR}/mask_{idx}.png").convert('L')) / 255.0
-        X.append(img.astype(np.float32))
-        y.append(np.expand_dims(mask.astype(np.float32), axis=-1))
-    return np.array(X), np.array(y)
+    for i in range(n):
+        img_path = os.path.join(DATA_DIR, f"img_{i}.png")
+        mask_path = os.path.join(DATA_DIR, f"mask_{i}.png")
 
+        # Cargar imagen y máscara
+        img = Image.open(img_path).resize((IMG_SIZE, IMG_SIZE)).convert('RGB')
+        mask = Image.open(mask_path).resize((IMG_SIZE, IMG_SIZE)).convert('L')
+
+        img = np.array(img) / 255.0
+        mask = np.array(mask)
+
+        # Normalizar máscara: 0 (fondo), 1 (objeto)
+        mask = (mask > 20).astype(np.float32)  # Umbral configurable
+
+        mask = np.expand_dims(mask, axis=-1)
+
+        X.append(img)
+        y.append(mask)
+
+    return np.array(X, dtype=np.float32), np.array(y, dtype=np.float32)
+
+# Prueba rápida
 if __name__ == "__main__":
-    # Solo necesitas ejecutar esto una vez con internet
-    guardar_datos_local()
-    print("Datos descargados y guardados localmente.")
+    X, y = cargar_datos(6)
+    for i in range(6):
+        plt.figure(figsize=(8, 3))
+
+        plt.subplot(1, 2, 1)
+        plt.imshow(X[i])
+        plt.title("Imagen")
+
+        plt.subplot(1, 2, 2)
+        plt.imshow(y[i].squeeze(), cmap='gray')
+        plt.title("Máscara Real")
+
+        plt.show()
