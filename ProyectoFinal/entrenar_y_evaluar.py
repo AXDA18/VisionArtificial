@@ -1,63 +1,54 @@
-# -*- coding: utf-8 -*
+# entrenar_y_evaluar.py
+# -*- coding: utf-8 -*-
 """
 Created on Thu Jun 12 07:38:38 2025
-
 @author: taver
 """
-from preparar_datos import cargar_datos
-from modelo_unet import unet_model
 import matplotlib.pyplot as plt
+from preparar_datos import cargar_datos
+from modelo_unet import construir_unet, dice_coef
+from tensorflow.keras.callbacks import EarlyStopping
 import numpy as np
 
+# Rutas (ajusta según tu estructura de carpetas)
+ruta_imagenes = "data/imagenes"
+ruta_mascaras = "data/mascaras"
+
 # Cargar datos
-X_train, y_train = cargar_datos(200)
+x_train, x_val, y_train, y_val = cargar_datos(ruta_imagenes, ruta_mascaras)
 
-# Crear modelo
-model = unet_model()
+# Modelo
+model = construir_unet()
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=[dice_coef])
 
-# Entrenar
+# Entrenamiento
+early_stopping = EarlyStopping(patience=5, restore_best_weights=True)
 history = model.fit(
-    X_train, y_train,
-    validation_split=0.1,
-    epochs=20,
-    batch_size=8
+    x_train, y_train,
+    validation_data=(x_val, y_val),
+    epochs=50,
+    batch_size=2,
+    callbacks=[early_stopping]
 )
 
-# Guardar modelo entrenado
-model.save("modelo_entrenado.keras")
-
-# Gráfica del entrenamiento
+# Graficar pérdidas
 plt.plot(history.history['loss'], label='Pérdida Entrenamiento')
 plt.plot(history.history['val_loss'], label='Pérdida Validación')
 plt.title("Curva de Pérdida")
-plt.xlabel("Épocas")
-plt.ylabel("Loss")
 plt.legend()
-plt.grid(True)
 plt.show()
 
-# Visualizar predicciones
-preds = model.predict(X_train[:5])
+# Predicciones
+preds = model.predict(x_val)
 
-for i in range(5):
-    plt.figure(figsize=(12, 4))
+# Visualizar resultados
+for i in range(len(x_val)):
+    pred = preds[i].squeeze()
+    pred_bin = (pred > 0.5).astype(np.uint8)
 
-    plt.subplot(1, 4, 1)
-    plt.imshow(X_train[i])
-    plt.title("Imagen")
-
-    plt.subplot(1, 4, 2)
-    plt.imshow(y_train[i].squeeze(), cmap='gray')
-    plt.title("Máscara Real")
-
-    plt.subplot(1, 4, 3)
-    plt.imshow(preds[i].squeeze(), cmap='gray')
-    plt.title("Predicción Raw")
-
-    plt.subplot(1, 4, 4)
-    pred_bin = (preds[i].squeeze() > 0.5).astype(np.uint8)
-    plt.imshow(pred_bin, cmap='gray')
-    plt.title("Predicción Binaria")
-
-    plt.tight_layout()
+    plt.figure(figsize=(10, 4))
+    plt.subplot(1, 4, 1); plt.imshow(x_val[i]); plt.title("Imagen")
+    plt.subplot(1, 4, 2); plt.imshow(y_val[i].squeeze(), cmap='gray'); plt.title("Máscara Real")
+    plt.subplot(1, 4, 3); plt.imshow(pred, cmap='gray'); plt.title("Predicción Raw")
+    plt.subplot(1, 4, 4); plt.imshow(pred_bin, cmap='gray'); plt.title("Predicción Binaria")
     plt.show()

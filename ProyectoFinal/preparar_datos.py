@@ -1,52 +1,34 @@
+# preparar_datos.py
 # -*- coding: utf-8 -*-
 """
 Created on Thu Jun 12 07:38:06 2025
-
 @author: taver
 """
-import os
 import numpy as np
-import matplotlib.pyplot as plt
-from PIL import Image
+import os
+from tensorflow.keras.utils import img_to_array, load_img
+from sklearn.model_selection import train_test_split
 
-IMG_SIZE = 128
-DATA_DIR = "./data/scene_parse_150"
+def cargar_datos(ruta_imagenes, ruta_mascaras, tamaño=(128, 128)):
+    imagenes = []
+    mascaras = []
 
-def cargar_datos(n=200):
-    X, y = [], []
-    for i in range(n):
-        img_path = os.path.join(DATA_DIR, f"img_{i}.png")
-        mask_path = os.path.join(DATA_DIR, f"mask_{i}.png")
+    # Solo usar imágenes 0, 1, 3 y 4
+    nombres_validos = ["0.png", "1.png", "3.png", "4.png"]
 
-        # Cargar imagen y máscara
-        img = Image.open(img_path).resize((IMG_SIZE, IMG_SIZE)).convert('RGB')
-        mask = Image.open(mask_path).resize((IMG_SIZE, IMG_SIZE)).convert('L')
+    for nombre_archivo in sorted(os.listdir(ruta_imagenes)):
+        if nombre_archivo in nombres_validos:
+            img = load_img(os.path.join(ruta_imagenes, nombre_archivo), target_size=tamaño)
+            msk = load_img(os.path.join(ruta_mascaras, nombre_archivo), color_mode="grayscale", target_size=tamaño)
 
-        img = np.array(img) / 255.0
-        mask = np.array(mask)
+            img = img_to_array(img) / 255.0
+            msk = img_to_array(msk) / 255.0
+            msk = (msk > 0.5).astype(np.float32)
 
-        # Normalizar máscara: 0 (fondo), 1 (objeto)
-        mask = (mask > 20).astype(np.float32)  # Umbral configurable
+            imagenes.append(img)
+            mascaras.append(msk)
 
-        mask = np.expand_dims(mask, axis=-1)
+    imagenes = np.array(imagenes)
+    mascaras = np.array(mascaras)
 
-        X.append(img)
-        y.append(mask)
-
-    return np.array(X, dtype=np.float32), np.array(y, dtype=np.float32)
-
-# Prueba rápida
-if __name__ == "__main__":
-    X, y = cargar_datos(6)
-    for i in range(6):
-        plt.figure(figsize=(8, 3))
-
-        plt.subplot(1, 2, 1)
-        plt.imshow(X[i])
-        plt.title("Imagen")
-
-        plt.subplot(1, 2, 2)
-        plt.imshow(y[i].squeeze(), cmap='gray')
-        plt.title("Máscara Real")
-
-        plt.show()
+    return train_test_split(imagenes, mascaras, test_size=0.25, random_state=42)
