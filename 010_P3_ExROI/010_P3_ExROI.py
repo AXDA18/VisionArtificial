@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 
 # Cargar imagen
-img = cv2.imread('imagen.jpg')
+img = cv2.imread('imagen1.jpg')
 img_copy = img.copy()
 
 # Seleccionar ROI manualmente (ajusta las coordenadas según tu imagen)
